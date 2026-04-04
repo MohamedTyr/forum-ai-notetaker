@@ -15,16 +15,21 @@ organized, and easy to extend.
 
 from pathlib import Path
 
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 
 from forum_ai_notetaker.db import init_db
+
+# Load environment variables before routes/services that may depend on them.
+load_dotenv()
 
 # Import route groups
 from routes.sessions import sessions_bp
 from routes.transcripts import transcripts_bp
 from routes.notes import notes_bp
 from routes.courses import courses_bp
+from routes.auth import auth_bp
 
 
 def create_app():
@@ -34,20 +39,16 @@ def create_app():
     Keeping app creation inside a function makes the backend easier
     to test, configure, and scale as the project grows.
     """
-
     app = Flask(__name__)
 
     # Enable cross-origin requests so the React frontend can
     # communicate with the backend during development.
     CORS(app)
 
-    # Store uploaded recordings locally for now.
-    app.config["UPLOAD_FOLDER"] = "uploads"
-    # Create tables if they don't exist yet.
+    # Create database tables if they do not exist yet.
     init_db()
 
-    # Configuration
-    # Resolve upload directory from backend root so it is stable
+    # Resolve upload directory from the backend root so it stays stable
     # regardless of the process working directory.
     backend_root = Path(__file__).resolve().parent
     upload_folder = backend_root / "uploads"
@@ -59,6 +60,7 @@ def create_app():
     app.register_blueprint(transcripts_bp, url_prefix="/api/transcripts")
     app.register_blueprint(notes_bp, url_prefix="/api/notes")
     app.register_blueprint(courses_bp, url_prefix="/api/courses")
+    app.register_blueprint(auth_bp, url_prefix="/api/auth")
 
     @app.route("/", methods=["GET"])
     def home():
@@ -70,7 +72,7 @@ def create_app():
         """
         return {
             "message": "Backend API is running.",
-            "hint": "Try /api/health to test the server."
+            "hint": "Try /api/health to test the server.",
         }, 200
 
     @app.route("/api/health", methods=["GET"])
@@ -83,7 +85,7 @@ def create_app():
         """
         return {
             "status": "ok",
-            "message": "Backend is running"
+            "message": "Backend is running",
         }, 200
 
     return app
@@ -95,11 +97,4 @@ app = create_app()
 
 if __name__ == "__main__":
     # Run the development server with auto-reload enabled.
-    app.run(debug=True)
-    """
-    Run the development server.
-
-    Debug mode is enabled so the server automatically reloads
-    when code changes during development.
-    """
     app.run(debug=True)
