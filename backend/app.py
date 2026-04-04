@@ -1,17 +1,16 @@
 """
 Main Flask application entry point.
 
-This file is responsible for starting the backend server and
-registering all route groups.
+This file creates the Flask server and registers all route groups.
 
-In our project the backend acts as the coordination layer.
-It receives requests from the frontend, validates them, and
-connects those requests to the rest of the system such as the
-processing pipeline and the database layer.
+In this project, the backend acts as the coordination layer. It
+receives requests from the frontend, validates them, and connects
+them to the rest of the system, including the processing pipeline
+and the data layer.
 
-I am not implementing the database schema or AI models here.
-Those belong to other roles on the team. My responsibility is
-to build a clean backend API that connects everything together.
+The database schema and AI models are handled by other roles on
+the team. My responsibility here is to keep the backend API clean,
+organized, and easy to extend.
 """
 
 from flask import Flask
@@ -21,38 +20,39 @@ from flask_cors import CORS
 from routes.sessions import sessions_bp
 from routes.transcripts import transcripts_bp
 from routes.notes import notes_bp
+from routes.courses import courses_bp
 
 
 def create_app():
     """
-    Application factory.
+    Create and configure the Flask application.
 
-    Keeping app creation inside a function makes the backend
-    easier to configure, test, and expand later.
+    Keeping app creation inside a function makes the backend easier
+    to test, configure, and scale as the project grows.
     """
 
     app = Flask(__name__)
 
-    # Enable cross-origin requests so the React frontend
-    # can communicate with the backend server.
+    # Enable cross-origin requests so the React frontend can
+    # communicate with the backend during development.
     CORS(app)
 
-    # Configuration
-    # Uploaded recordings will be stored locally for now.
+    # Store uploaded recordings locally for now.
     app.config["UPLOAD_FOLDER"] = "uploads"
 
-    # Register API route groups
+    # Register API route groups.
     app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
     app.register_blueprint(transcripts_bp, url_prefix="/api/transcripts")
     app.register_blueprint(notes_bp, url_prefix="/api/notes")
+    app.register_blueprint(courses_bp, url_prefix="/api/courses")
 
     @app.route("/", methods=["GET"])
     def home():
         """
-        Root route.
+        Root route used to confirm the API is running.
 
-        This prevents the base URL from returning a 404 and
-        provides a quick message confirming the API is running.
+        This avoids a 404 at the base URL and gives a small hint
+        about where to test the backend.
         """
         return {
             "message": "Backend API is running.",
@@ -62,10 +62,10 @@ def create_app():
     @app.route("/api/health", methods=["GET"])
     def health():
         """
-        Health check endpoint.
+        Health check route used during development.
 
-        This route is mainly used during development to confirm
-        that the backend server is running and reachable.
+        This is a simple way to confirm that the backend server
+        is running and reachable before testing real endpoints.
         """
         return {
             "status": "ok",
@@ -75,15 +75,10 @@ def create_app():
     return app
 
 
-# Create the Flask application
+# Create the Flask application instance
 app = create_app()
 
 
 if __name__ == "__main__":
-    """
-    Run the development server.
-
-    Debug mode is enabled so the server automatically reloads
-    when code changes during development.
-    """
+    # Run the development server with auto-reload enabled.
     app.run(debug=True)
