@@ -118,43 +118,6 @@ def get_course_details(course_id: int):
     return success_response("Course retrieved", data)
 
 
-@courses_bp.route("/<int:course_id>/promote-ta", methods=["POST"])
-@auth_required
-def promote_to_ta(course_id: int):
-    """
-    Promote a student to TA.
-
-    Expected JSON:
-    {
-        "user_id": 2
-    }
-    """
-    data = request.get_json(silent=True) or {}
-    user_id = data.get("user_id")
-
-    if user_id is None:
-        return error_response("user_id required", 400)
-
-    try:
-        user_id = int(user_id)
-    except ValueError:
-        return error_response("user_id must be int", 400)
-
-    if not is_instructor(course_id, g.user["id"]):
-        return error_response("Only instructors can promote", 403)
-
-    membership = get_course_member(course_id, user_id)
-    if not membership:
-        return error_response("User not in course", 404)
-
-    updated = update_course_member_role(course_id, user_id, "ta")
-    if not updated:
-        return error_response("No role update was applied", 400)
-
-    membership = get_course_member(course_id, user_id)
-    return success_response("Promoted to TA", membership)
-
-
 @courses_bp.route("/<int:course_id>/members/<int:user_id>", methods=["PATCH"])
 @auth_required
 def update_member_role(course_id: int, user_id: int):
