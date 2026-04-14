@@ -12,7 +12,10 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from forum_ai_notetaker.db import get_connection
-from services.course_member_service import create_course_member, get_course_member
+from services.course_member_service import (
+    create_course_member,
+    get_course_member,
+)
 
 
 def _row_to_dict(row) -> dict:
@@ -39,22 +42,34 @@ def create_course(name: str, creator_user_id: int) -> dict:
     invite_code = _generate_unique_invite_code()
 
     with get_connection() as conn:
-        cursor = conn.execute(
-            """
-            INSERT INTO courses (name, invite_code, created_at, updated_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (name, invite_code, now, now),
-        )
-        conn.commit()
+        try:
+            cursor = conn.execute(
+                """
+                INSERT INTO courses (name, invite_code, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (name, invite_code, now, now),
+            )
+            course_id = cursor.lastrowid
+
+            conn.execute(
+                """
+                INSERT INTO course_members (course_id, user_id, role, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (course_id, creator_user_id, "instructor", now, now),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
         row = conn.execute(
             "SELECT * FROM courses WHERE id = ?",
-            (cursor.lastrowid,),
+            (course_id,),
         ).fetchone()
 
-    course = _row_to_dict(row)
-    create_course_member(course["id"], creator_user_id, "instructor")
-    return course
+    return _row_to_dict(row)
 
 
 def get_course_by_id(course_id: int) -> Optional[dict]:
