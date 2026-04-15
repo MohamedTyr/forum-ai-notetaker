@@ -22,19 +22,18 @@ export default function Notes() {
           getNotes(id),
         ]);
 
-        if (results[0].status === "fulfilled") {
-          setSession(results[0].value.data);
+        if (results[0].status === "rejected") {
+          setError(results[0].reason?.message || "Failed to load session.");
+          return;
         }
+
+        setSession(results[0].value.data);
+
         if (results[1].status === "fulfilled") {
           setTranscript(results[1].value.data);
         }
         if (results[2].status === "fulfilled") {
           setNotes(results[2].value.data);
-        }
-
-        const failures = results.filter((r) => r.status === "rejected");
-        if (failures.length === results.length) {
-          setError("Failed to load session data.");
         }
       } catch (err) {
         setError(err.message || "Failed to load notes.");
