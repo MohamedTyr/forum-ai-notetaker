@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { getNotes, getTranscript } from "../api/backend";
+import { getSession, getNotes, getTranscript } from "../api/backend";
 
 export default function Notes() {
-  // This comes from route /notes/:id.
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [session, setSession] = useState(null);
   const [transcript, setTranscript] = useState(null);
   const [notes, setNotes] = useState(null);
 
@@ -16,14 +16,26 @@ export default function Notes() {
       setError("");
 
       try {
-        // Fetch transcript + notes together for faster page load.
-        const [transcriptPayload, notesPayload] = await Promise.all([
+        const results = await Promise.allSettled([
+          getSession(id),
           getTranscript(id),
           getNotes(id),
         ]);
 
-        setTranscript(transcriptPayload.data);
-        setNotes(notesPayload.data);
+        if (results[0].status === "fulfilled") {
+          setSession(results[0].value.data);
+        }
+        if (results[1].status === "fulfilled") {
+          setTranscript(results[1].value.data);
+        }
+        if (results[2].status === "fulfilled") {
+          setNotes(results[2].value.data);
+        }
+
+        const failures = results.filter((r) => r.status === "rejected");
+        if (failures.length === results.length) {
+          setError("Failed to load session data.");
+        }
       } catch (err) {
         setError(err.message || "Failed to load notes.");
       } finally {
@@ -34,38 +46,75 @@ export default function Notes() {
     loadData();
   }, [id]);
 
+  if (loading) {
+    return (
+      <div className="container">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container">
+        <p className="error-text" role="alert">{error}</p>
+      </div>
+    );
+  }
+
+  const status = session?.status;
+
   return (
     <div className="container">
-      <h1>Session {id}</h1>
+      <h1>{session?.title || `Session ${id}`}</h1>
+      {status ? (
+        <p className="muted-text">Status: {status}</p>
+      ) : null}
 
-      {loading ? <p>Loading...</p> : null}
-      {error ? <p>{error}</p> : null}
+      {status === "processing" ? (
+        <p className="status-processing" role="status" aria-live="polite">
+          Transcription in progress...
+        </p>
+      ) : null}
 
-      {!loading && !error ? (
+      {status === "failed" ? (
+        <p className="error-text" role="alert">
+          Processing failed. The recording could not be transcribed.
+        </p>
+      ) : null}
+
+      {transcript ? (
         <>
           <h2>Transcript</h2>
-          <p>{transcript?.content || "Transcript not ready yet."}</p>
-
-          <h2>Notes</h2>
-          {notes ? (
-            <>
-              <p>
-                <strong>Summary:</strong> {notes.summary}
-              </p>
-
-              <p>
-                <strong>Topics:</strong> {(notes.topics || []).join(", ")}
-              </p>
-
-              <p>
-                <strong>Action items:</strong>{" "}
-                {(notes.action_items || []).join(", ")}
-              </p>
-            </>
-          ) : (
-            <p>Notes not generated yet.</p>
-          )}
+          <p>{transcript.content}</p>
         </>
+      ) : status === "uploaded" ? (
+        <p className="muted-text">Waiting for processing to start...</p>
+      ) : null}
+
+      {notes ? (
+        <>
+          <h2>Notes</h2>
+          <p>
+            <strong>Summary:</strong> {notes.summary}
+          </p>
+          <p>
+            <strong>Topics:</strong> {(notes.topics || []).join(", ")}
+          </p>
+          <p>
+            <strong>Action items:</strong>{" "}
+            {(notes.action_items || []).join(", ")}
+          </p>
+        </>
+      ) : status === "transcribed" ? (
+        <p className="muted-text">
+          Transcript is ready. Notes will be generated soon.
+        </p>
+      ) : null}
+
+      {!transcript && !notes && status &&
+       !["processing", "failed", "uploaded", "transcribed"].includes(status) ? (
+        <p className="muted-text">Content not yet available.</p>
       ) : null}
     </div>
   );
