@@ -104,16 +104,18 @@ def get_course_details(course_id: int):
     if not course:
         return error_response("Course not found", 404)
 
-    if not is_course_member(course_id, g.user["id"]):
+    member = get_course_member(course_id, g.user["id"])
+    if not member:
         return error_response("Access denied", 403)
 
     data = {
         "id": course["id"],
         "name": course["name"],
         "members": get_course_members(course_id),
+        "your_role": member["role"],
     }
 
-    if is_instructor(course_id, g.user["id"]):
+    if member["role"] == "instructor":
         data["invite_code"] = course["invite_code"]
 
     return success_response("Course retrieved", data)
