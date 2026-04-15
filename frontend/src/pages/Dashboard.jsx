@@ -7,6 +7,7 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [coursesError, setCoursesError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -22,6 +23,8 @@ export default function Dashboard() {
 
         if (results[0].status === "fulfilled") {
           setCourses(results[0].value.data || []);
+        } else {
+          setCoursesError("Could not load courses.");
         }
         if (results[1].status === "fulfilled") {
           setSessions(results[1].value.data || []);
@@ -85,7 +88,9 @@ export default function Dashboard() {
 
       <h2 className="section-heading">Your courses</h2>
 
-      {courses.length === 0 ? (
+      {coursesError ? (
+        <p className="error-text" role="alert">{coursesError}</p>
+      ) : courses.length === 0 ? (
         <div className="empty-state">
           <p>You are not in any courses yet.</p>
           <div className="empty-state-actions">

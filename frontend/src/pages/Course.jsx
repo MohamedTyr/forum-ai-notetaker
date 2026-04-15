@@ -45,7 +45,7 @@ export default function Course() {
     setCourse((prev) => ({
       ...prev,
       members: prev.members.map((m) =>
-        m.id === userId ? { ...m, role: "ta" } : m
+        m.user_id === userId ? { ...m, role: "ta" } : m
       ),
     }));
 
@@ -104,7 +104,7 @@ export default function Course() {
 
       <ul className="member-list">
         {(course.members || []).map((member) => (
-          <li className="member-row" key={member.id}>
+          <li className="member-row" key={member.user_id}>
             <div className="member-info">
               <span className="member-name">{member.name}</span>
               <span className={`role-badge role-badge--${member.role || "student"}`}>
@@ -114,7 +114,7 @@ export default function Course() {
             {isInstructor && member.role === "student" ? (
               <button
                 className="btn-secondary btn-small"
-                onClick={() => handlePromote(member.id, member.name)}
+                onClick={() => handlePromote(member.user_id, member.name)}
                 aria-label={`Promote ${member.name} to TA`}
               >
                 Promote to TA

@@ -114,7 +114,7 @@ def fetch_one_session(session_id: int) -> Optional[dict]:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT id, title, original_filename, stored_path, status, created_at, updated_at
+            SELECT id, title, original_filename, stored_path, status, course_id, created_at, updated_at
             FROM sessions
             WHERE id = ?
             """,
