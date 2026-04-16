@@ -25,13 +25,26 @@ def process_recording(file_path: str) -> str:
         Transcript text.
 
     Raises:
-        RuntimeError: Wraps lower-level errors with pipeline context.
+        ValueError: If file_path is invalid.
+        FileNotFoundError: If input video does not exist.
+        RuntimeError: If any pipeline step fails.
     """
+    # Step 1: Extract audio
     try:
         audio_path = extract_audio(file_path)
-        transcript = transcribe_audio(audio_path)
+    except (ValueError, FileNotFoundError) as exc:
+        # Re-raise path validation errors as-is
+        raise
+    except RuntimeError as exc:
+        raise RuntimeError(f"Audio extraction failed: {exc}") from exc
 
-       
-        return transcript
-    except Exception as exc:
-        raise RuntimeError(f"Pipeline failed for '{file_path}': {exc}") from exc
+    # Step 2: Transcribe audio
+    try:
+        transcript = transcribe_audio(audio_path)
+    except (ValueError, FileNotFoundError) as exc:
+        # Re-raise path validation errors as-is
+        raise
+    except RuntimeError as exc:
+        raise RuntimeError(f"Transcription failed: {exc}") from exc
+
+    return transcript
