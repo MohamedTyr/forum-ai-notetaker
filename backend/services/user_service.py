@@ -26,7 +26,12 @@ def _row_to_dict(row) -> dict:
     return dict(row)
 
 
-def create_user(email: str, name: str, password_hash: str) -> dict:
+def create_user(
+    email: str,
+    name: str,
+    password_hash: str,
+    user_type: str = "student",
+) -> dict:
     """
     Create a new user record.
 
@@ -37,6 +42,8 @@ def create_user(email: str, name: str, password_hash: str) -> dict:
         email: The user's unique email address.
         name: The user's display name.
         password_hash: The hashed password to store.
+        user_type: Global account type, either 'student' or 'professor'.
+            Determines which course roles the user can hold.
 
     Returns:
         A dictionary representing the created user, excluding the
@@ -50,16 +57,16 @@ def create_user(email: str, name: str, password_hash: str) -> dict:
     with get_connection() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO users (email, name, password_hash, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO users (email, name, password_hash, user_type, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (email, name, password_hash, now, now),
+            (email, name, password_hash, user_type, now, now),
         )
         conn.commit()
 
         row = conn.execute(
             """
-            SELECT id, email, name, created_at
+            SELECT id, email, name, user_type, created_at
             FROM users
             WHERE id = ?
             """,
@@ -86,7 +93,7 @@ def get_user_by_email(email: str) -> Optional[dict]:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT id, email, name, password_hash, created_at
+            SELECT id, email, name, password_hash, user_type, created_at
             FROM users
             WHERE email = ?
             """,
@@ -114,7 +121,7 @@ def get_user_by_id(user_id: int) -> Optional[dict]:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT id, email, name, created_at
+            SELECT id, email, name, user_type, created_at
             FROM users
             WHERE id = ?
             """,

@@ -52,11 +52,11 @@ export function loginUser(email, password) {
   });
 }
 
-export function registerUser(name, email, password) {
+export function registerUser(name, email, password, userType) {
   return request("/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ name, email, password, user_type: userType }),
   });
 }
 

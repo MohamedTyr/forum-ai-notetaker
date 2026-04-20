@@ -27,6 +27,7 @@ auth_bp = Blueprint("auth", __name__)
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD_LENGTH = 8
 MAX_NAME_LENGTH = 100
+ALLOWED_USER_TYPES = {"student", "professor"}
 
 
 @auth_bp.route("/register", methods=["POST"])
@@ -50,6 +51,7 @@ def register():
     email = (data.get("email") or "").strip().lower()
     name = (data.get("name") or "").strip()
     password = data.get("password") or ""
+    user_type = (data.get("user_type") or "student").strip().lower()
 
     errors = []
     if not email or not EMAIL_REGEX.match(email):
@@ -58,6 +60,8 @@ def register():
         errors.append(f"Name is required and must be under {MAX_NAME_LENGTH} characters")
     if len(password) < MIN_PASSWORD_LENGTH:
         errors.append(f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
+    if user_type not in ALLOWED_USER_TYPES:
+        errors.append("Account type must be 'student' or 'professor'")
 
     if errors:
         return error_response("; ".join(errors), 400)
@@ -65,7 +69,12 @@ def register():
     password_hash = generate_password_hash(password, method="pbkdf2:sha256")
 
     try:
-        user = create_user(email=email, name=name, password_hash=password_hash)
+        user = create_user(
+            email=email,
+            name=name,
+            password_hash=password_hash,
+            user_type=user_type,
+        )
     except sqlite3.IntegrityError:
         return error_response("Email is already registered", 409)
 

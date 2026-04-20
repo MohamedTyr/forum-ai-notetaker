@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCourses, getSessions } from "../api/backend";
+import useAuth from "../hooks/useAuth";
 import {
   getSessionStatusLabel,
   SESSION_STATUS_FILTERS,
 } from "../utils/sessionStatus";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const isProfessor = user?.user_type === "professor";
   const [courses, setCourses] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,8 +101,11 @@ export default function Dashboard() {
         <div className="empty-state">
           <p>You are not in any courses yet.</p>
           <div className="empty-state-actions">
-            <Link to="/courses/create" className="btn-link">Create a course</Link>
-            <Link to="/courses/join" className="btn-link btn-link--secondary">Join a course</Link>
+            {isProfessor ? (
+              <Link to="/courses/create" className="btn-link">Create a course</Link>
+            ) : (
+              <Link to="/courses/join" className="btn-link">Join a course</Link>
+            )}
           </div>
         </div>
       ) : (
