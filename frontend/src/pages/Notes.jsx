@@ -2,6 +2,25 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getSession, getNotes, getTranscript } from "../api/backend";
 
+const STATUS_LABELS = {
+  uploaded: "Uploaded",
+  processing: "Processing",
+  transcribed: "Transcript Ready",
+  notes_generated: "Notes Ready",
+  failed: "Failed",
+};
+
+function formatTimestamp(value) {
+  if (!value) return "Unknown";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
 export default function Notes() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
@@ -70,26 +89,37 @@ export default function Notes() {
   }
 
   const status = session?.status;
-
-  const STATUS_LABELS = {
-    uploaded: "Uploaded",
-    processing: "Processing",
-    transcribed: "Transcribed",
-    notes_generated: "Ready",
-    failed: "Failed",
-  };
   const KNOWN_STATUSES = Object.keys(STATUS_LABELS);
+  const topics = notes?.topics || [];
+  const actionItems = notes?.action_items || [];
+  const hasTranscript = Boolean(transcript?.content);
+  const hasNotes = Boolean(notes);
 
   return (
     <div className="container">
-      <h1>{session?.title || `Session ${id}`}</h1>
-      {status ? (
-        <p className="muted-text">Status: {STATUS_LABELS[status] || status}</p>
-      ) : null}
+      <div className="page-header">
+        <div>
+          <h1>{session?.title || `Session ${id}`}</h1>
+          {session?.original_filename ? (
+            <p className="muted-text">Original file: {session.original_filename}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="notes-meta">
+        <div className="notes-meta-item">
+          <span className="notes-meta-label">Status</span>
+          <strong>{STATUS_LABELS[status] || status || "Unknown"}</strong>
+        </div>
+        <div className="notes-meta-item">
+          <span className="notes-meta-label">Last updated</span>
+          <strong>{formatTimestamp(session?.updated_at)}</strong>
+        </div>
+      </div>
 
       {status === "processing" ? (
         <p className="status-processing" role="status" aria-live="polite">
-          Transcription in progress...
+          We&apos;re still processing this recording.
         </p>
       ) : null}
 
@@ -99,37 +129,68 @@ export default function Notes() {
         </p>
       ) : null}
 
-      {transcript ? (
-        <>
-          <h2>Transcript</h2>
-          <p>{transcript.content}</p>
-        </>
-      ) : status === "uploaded" ? (
-        <p className="muted-text">Waiting for processing to start...</p>
-      ) : null}
+      <section className="notes-section">
+        <h2 className="section-heading">Study Notes</h2>
 
-      {notes ? (
-        <>
-          <h2>Notes</h2>
-          <p>
-            <strong>Summary:</strong> {notes.summary}
-          </p>
-          <p>
-            <strong>Topics:</strong> {(notes.topics || []).join(", ")}
-          </p>
-          <p>
-            <strong>Action items:</strong>{" "}
-            {(notes.action_items || []).join(", ")}
-          </p>
-        </>
-      ) : status === "transcribed" ? (
-        <p className="muted-text">
-          Transcript is ready. Notes will be generated soon.
-        </p>
-      ) : null}
+        {hasNotes ? (
+          <div className="notes-stack">
+            <div className="notes-block">
+              <h3>Summary</h3>
+              <p>{notes.summary}</p>
+            </div>
 
-      {!transcript && !notes && status &&
-       !KNOWN_STATUSES.includes(status) ? (
+            <div className="notes-block">
+              <h3>Topics</h3>
+              {topics.length > 0 ? (
+                <ul className="notes-list">
+                  {topics.map((topic, index) => (
+                    <li key={`${topic}-${index}`}>{topic}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted-text">No topics were extracted yet.</p>
+              )}
+            </div>
+
+            <div className="notes-block">
+              <h3>Action Items</h3>
+              {actionItems.length > 0 ? (
+                <ul className="notes-list">
+                  {actionItems.map((item, index) => (
+                    <li key={`${item}-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted-text">No action items were identified.</p>
+              )}
+            </div>
+          </div>
+        ) : status === "transcribed" ? (
+          <p className="muted-text">
+            The transcript is ready. Study notes will appear here once generation finishes.
+          </p>
+        ) : status === "uploaded" || status === "processing" ? (
+          <p className="muted-text">
+            Study notes will appear here after the recording is processed.
+          </p>
+        ) : null}
+      </section>
+
+      <section className="notes-section">
+        <h2 className="section-heading">Transcript</h2>
+
+        {hasTranscript ? (
+          <div className="notes-block">
+            <p>{transcript.content}</p>
+          </div>
+        ) : status === "uploaded" ? (
+          <p className="muted-text">Waiting for processing to start...</p>
+        ) : status === "processing" ? (
+          <p className="muted-text">Transcript will appear here once processing is complete.</p>
+        ) : null}
+      </section>
+
+      {!hasTranscript && !hasNotes && status && !KNOWN_STATUSES.includes(status) ? (
         <p className="muted-text">Content not yet available.</p>
       ) : null}
     </div>
