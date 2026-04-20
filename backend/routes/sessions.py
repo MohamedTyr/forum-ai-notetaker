@@ -13,8 +13,8 @@ gateway between the frontend and the backend processing pipeline.
 """
 
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from threading import Thread
 from flask import Blueprint, request, current_app, g
 
 from middleware.auth import auth_required
@@ -27,6 +27,8 @@ from services.session_service import (
 )
 from services.course_service import get_course_by_id, is_course_member, is_ta_or_professor
 from pipeline.trigger import run_pipeline_async
+
+executor = ThreadPoolExecutor(max_workers=2)
 
 sessions_bp = Blueprint("sessions", __name__)
 
@@ -147,10 +149,10 @@ def upload_session():
 
     print(f"[UPLOAD] File saved for session {session['id']}: {original_filename}")
     print(f"[UPLOAD] Starting background pipeline thread for session {session['id']}...")
-    
-    thread = Thread(target=run_pipeline_async, args=(stored_path, session["id"]), daemon=True)
-    thread.start()
-    
+
+    app = current_app._get_current_object()
+    executor.submit(run_pipeline_async, stored_path, session["id"], app)
+
     print(f"[UPLOAD] Background thread started. Returning response immediately.")
     print(f"[UPLOAD] Session {session['id']} status will update as pipeline progresses")
 

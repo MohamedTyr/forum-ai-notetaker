@@ -73,14 +73,15 @@ def trigger_pipeline(file_path: str, session_id: int) -> None:
         update_session_status(session_id, "failed")
 
 
-def run_pipeline_async(file_path: str, session_id: int) -> None:
+def run_pipeline_async(file_path: str, session_id: int, app) -> None:
     """
     Run the pipeline in a background thread.
     Wraps trigger_pipeline with error handling for async execution.
     """
     try:
         print(f"[PIPELINE] Running in background for session {session_id}...")
-        trigger_pipeline(file_path, session_id)
+        with app.app_context():
+            trigger_pipeline(file_path, session_id)
         print(f"[PIPELINE] Completed successfully for session {session_id}")
     except Exception as e:
         print(f"[ERROR] Background pipeline failed for session {session_id}: {e}")
