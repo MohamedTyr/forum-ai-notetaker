@@ -165,7 +165,7 @@ def is_professor(course_id: int, user_id: int) -> bool:
     Returns:
         True if the user is the professor, otherwise False.
     """
-    return get_course_member_role(course_id, user_id) == "professor"
+    return get_course_member_role(course_id, user_id) == "instructor"
 
 
 def is_ta_or_professor(course_id: int, user_id: int) -> bool:
@@ -174,6 +174,7 @@ def is_ta_or_professor(course_id: int, user_id: int) -> bool:
 
     This helper is mainly used for actions like uploading recordings,
     where only instructional roles should be allowed.
+    Professor = Instructor, TA = Teaching Assistant, both have elevated permissions compared to students.
 
     Args:
         course_id: The course being checked.
@@ -182,4 +183,4 @@ def is_ta_or_professor(course_id: int, user_id: int) -> bool:
     Returns:
         True if the user is a TA or professor, otherwise False.
     """
-    return get_course_member_role(course_id, user_id) in {"ta", "professor"}
+    return get_course_member_role(course_id, user_id) in {"ta", "instructor"}
