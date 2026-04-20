@@ -12,11 +12,10 @@ The backend acts as the coordination layer of the system:
 
 Blueprints and their URL prefixes:
     /api/auth        — authentication and user identity
-    /api/sessions    — upload and retrieve recordings
+    /api/sessions    — upload, retrieve, and search recordings
     /api/transcripts — access transcript data
     /api/notes       — access AI-generated notes
     /api/courses     — course creation and membership
-    /api/search      — search sessions within user-accessible courses
 
 This file intentionally does not implement business logic. Its role is
 to assemble the application and wire together all components in a
@@ -37,7 +36,6 @@ from forum_ai_notetaker.db import init_db
 from routes.auth import auth_bp
 from routes.courses import courses_bp
 from routes.notes import notes_bp
-from routes.search import search_bp
 from routes.sessions import sessions_bp
 from routes.transcripts import transcripts_bp
 
@@ -81,18 +79,11 @@ def create_app() -> Flask:
     app.register_blueprint(transcripts_bp, url_prefix="/api/transcripts")
     app.register_blueprint(notes_bp, url_prefix="/api/notes")
     app.register_blueprint(courses_bp, url_prefix="/api/courses")
-    app.register_blueprint(search_bp, url_prefix="/api/search")
 
     @app.route("/", methods=["GET"])
     def home():
         """
         Root endpoint for basic API verification.
-
-        This route prevents a 404 at the base URL and provides a simple
-        confirmation that the backend server is running.
-
-        Returns:
-            A JSON message indicating the API status.
         """
         return {
             "message": "Backend API is running.",
@@ -103,13 +94,6 @@ def create_app() -> Flask:
     def health():
         """
         Health check endpoint.
-
-        This route is used during development and deployment to verify
-        that the backend is running and reachable. It can also be used
-        by monitoring tools or deployment platforms.
-
-        Returns:
-            A JSON response indicating system health.
         """
         return {
             "status": "ok",
