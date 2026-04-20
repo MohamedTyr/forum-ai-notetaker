@@ -11,6 +11,8 @@ export default function Notes() {
   const [notes, setNotes] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
       setLoading(true);
       setError("");
@@ -21,6 +23,8 @@ export default function Notes() {
           getTranscript(id),
           getNotes(id),
         ]);
+
+        if (cancelled) return;
 
         if (results[0].status === "rejected") {
           setError(results[0].reason?.message || "Failed to load session.");
@@ -36,13 +40,17 @@ export default function Notes() {
           setNotes(results[2].value.data);
         }
       } catch (err) {
-        setError(err.message || "Failed to load notes.");
+        if (!cancelled) setError(err.message || "Failed to load notes.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) {
