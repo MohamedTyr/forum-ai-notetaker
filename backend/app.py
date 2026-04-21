@@ -77,12 +77,6 @@ def create_app() -> Flask:
                 "JWT_SECRET_KEY must be set to a real value in production "
                 "(not blank, not 'dev-secret-key', not 'CHANGE_ME')"
             )
-        # Professor-registration gate is a no-op if the secret is missing,
-        # so require it explicitly in prod to avoid silent open registration.
-        if os.environ.get("PROFESSOR_REGISTRATION_SECRET", "") in weak_secrets:
-            raise RuntimeError(
-                "PROFESSOR_REGISTRATION_SECRET must be set in production"
-            )
 
     # Cap upload size at the Flask layer. nginx on the frontend has a 500M
     # cap but direct POSTs to the backend public URL bypass nginx entirely.
