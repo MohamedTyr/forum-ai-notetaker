@@ -27,6 +27,7 @@ from flask import Flask
 
 from forum_ai_notetaker import db
 from routes.auth import auth_bp
+from utils.auth import generate_token
 
 
 class AuthRouteTests(unittest.TestCase):
@@ -64,6 +65,10 @@ class AuthRouteTests(unittest.TestCase):
             path,
             headers={"Authorization": f"Bearer {token}"},
         )
+
+    def get_with_headers(self, path, headers):
+        """Send a GET request with custom headers."""
+        return self.client.get(path, headers=headers)
 
     def seed_user(
         self,
@@ -298,6 +303,69 @@ class AuthRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.get_json()["error"], "Invalid credentials")
+
+    def test_me_returns_authenticated_user_for_valid_token(self):
+        """A valid bearer token should allow access to the current user identity."""
+        self.seed_user()
+
+        with db.get_connection() as conn:
+            row = conn.execute(
+                "SELECT id, email FROM users WHERE email = ?",
+                ("student@example.com",),
+            ).fetchone()
+
+        token = generate_token(row["id"], row["email"])
+        response = self.get_with_token("/api/auth/me", token)
+
+        self.assertEqual(response.status_code, 200)
+
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["message"], "User retrieved successfully")
+        self.assertEqual(payload["data"]["id"], row["id"])
+        self.assertEqual(payload["data"]["email"], "student@example.com")
+        self.assertEqual(payload["data"]["name"], "Student")
+        self.assertEqual(payload["data"]["user_type"], "student")
+
+    def test_me_requires_authorization_header(self):
+        """Protected auth routes should reject requests without an Authorization header."""
+        response = self.client.get("/api/auth/me")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["error"], "Missing Authorization header")
+
+    def test_me_rejects_malformed_authorization_header(self):
+        """Protected auth routes should reject non-Bearer authorization headers."""
+        response = self.get_with_headers(
+            "/api/auth/me",
+            {"Authorization": "Token abc123"},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.get_json()["error"],
+            "Invalid Authorization header format",
+        )
+
+    def test_me_rejects_empty_bearer_token(self):
+        """Protected auth routes should reject an empty bearer token."""
+        response = self.get_with_headers(
+            "/api/auth/me",
+            {"Authorization": "Bearer "},
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.get_json()["error"],
+            "Invalid Authorization header format",
+        )
+
+    def test_me_rejects_invalid_token(self):
+        """Protected auth routes should reject invalid or expired tokens."""
+        response = self.get_with_token("/api/auth/me", "not-a-real-token")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["error"], "Invalid or expired token")
 
 
 if __name__ == "__main__":
