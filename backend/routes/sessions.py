@@ -265,7 +265,9 @@ def upload_session():
     file_path = upload_folder / unique_filename
     file.save(str(file_path))
 
-    stored_path = str(Path("uploads") / unique_filename)
+    # Store the absolute path so the pipeline can find the file regardless
+    # of where UPLOAD_FOLDER points (local default vs mounted volume in prod).
+    stored_path = str(file_path)
 
     session = create_session_record(
         title=title,
