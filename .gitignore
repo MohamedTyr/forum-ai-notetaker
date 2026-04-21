@@ -19,8 +19,12 @@ test.mp3
 myenv/
 
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 myenv
 
 # Test media files
@@ -28,3 +32,9 @@ myenv
 *.mp4
 *.wav
 *.m4a
+
+# Private workspace and local tooling noise
+local-work/
+.serena/
+*.log
+*.excalidraw

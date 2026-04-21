@@ -1,6 +1,20 @@
 // Use an env override when needed; otherwise rely on Vite proxy (/api -> backend).
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
+// If a production build forgot to bake VITE_API_BASE_URL, relative /api calls
+// hit the nginx container (which no longer proxies to the backend) and fail
+// silently with 404s. Warn loudly so the misconfiguration is obvious.
+if (!import.meta.env.DEV && !API_BASE && typeof window !== "undefined") {
+  const host = window.location.hostname;
+  if (host !== "localhost" && host !== "127.0.0.1") {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[config] VITE_API_BASE_URL was not set at build time. " +
+      "API calls will fail. Set it as a Railway build arg on the frontend service."
+    );
+  }
+}
+
 function getToken() {
   return localStorage.getItem("token");
 }

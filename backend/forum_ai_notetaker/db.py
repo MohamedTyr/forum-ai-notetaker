@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -83,7 +84,11 @@ def _run_migrations(connection: sqlite3.Connection) -> None:
 
 
 def resolve_db_path(db_path: str | Path | None = None) -> Path:
-    path = Path(db_path) if db_path is not None else DEFAULT_DB_PATH
+    if db_path is not None:
+        path = Path(db_path)
+    else:
+        env_path = os.environ.get("DATABASE_PATH")
+        path = Path(env_path) if env_path else DEFAULT_DB_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -92,6 +97,10 @@ def init_db(db_path: str | Path | None = None) -> Path:
     path = resolve_db_path(db_path)
     schema = SCHEMA_PATH.read_text(encoding="utf-8")
     with sqlite3.connect(path) as connection:
+        # WAL mode lets readers and writers proceed concurrently. Without
+        # it, background pipeline writes (transcript, notes, status) block
+        # foreground reads and raise "database is locked" errors.
+        connection.execute("PRAGMA journal_mode = WAL;")
         connection.execute("PRAGMA foreign_keys = ON;")
         connection.executescript(schema)
         _run_migrations(connection)
@@ -100,9 +109,10 @@ def init_db(db_path: str | Path | None = None) -> Path:
 
 @contextmanager
 def get_connection(db_path: str | Path | None = None) -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(resolve_db_path(db_path))
+    connection = sqlite3.connect(resolve_db_path(db_path), timeout=10.0)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON;")
+    connection.execute("PRAGMA busy_timeout = 5000;")
     try:
         yield connection
     finally:
