@@ -12,6 +12,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from werkzeug.security import check_password_hash
+
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
@@ -61,6 +63,52 @@ class AuthRouteTests(unittest.TestCase):
             path,
             headers={"Authorization": f"Bearer {token}"},
         )
+
+    def test_register_creates_user_and_returns_token(self):
+        """
+        A valid registration should create the user and issue a token.
+
+        The stored password should be hashed rather than persisted in
+        plain text.
+        """
+        response = self.post_json(
+            "/api/auth/register",
+            {
+                "email": "newstudent@example.com",
+                "name": "New Student",
+                "password": "strongpass123",
+                "user_type": "student",
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["message"], "User registered successfully")
+        self.assertIn("token", payload["data"])
+
+        user = payload["data"]["user"]
+        self.assertEqual(user["email"], "newstudent@example.com")
+        self.assertEqual(user["name"], "New Student")
+        self.assertEqual(user["user_type"], "student")
+
+        with db.get_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT email, name, user_type, password_hash
+                FROM users
+                WHERE email = ?
+                """,
+                ("newstudent@example.com",),
+            ).fetchone()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row["email"], "newstudent@example.com")
+        self.assertEqual(row["name"], "New Student")
+        self.assertEqual(row["user_type"], "student")
+        self.assertNotEqual(row["password_hash"], "strongpass123")
+        self.assertTrue(check_password_hash(row["password_hash"], "strongpass123"))
 
 
 if __name__ == "__main__":
