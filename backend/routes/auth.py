@@ -10,7 +10,9 @@ These routes form the public authentication API of the backend:
 - /me returns the authenticated user's identity using shared auth middleware
 """
 
+import os
 import re
+import secrets
 import sqlite3
 
 from flask import Blueprint, request, g
@@ -65,6 +67,20 @@ def register():
 
     if errors:
         return error_response("; ".join(errors), 400)
+
+    # Gate professor self-registration so random visitors on the public URL
+    # cannot create privileged accounts and burn our Groq/Whisper quota.
+    # In prod the app.py startup guard already requires this env var to be
+    # set; here we enforce it at request time too. If the env var is unset
+    # (local dev only — Railway boot would have failed), the gate is open.
+    if user_type == "professor":
+        expected_secret = os.environ.get("PROFESSOR_REGISTRATION_SECRET", "")
+        if expected_secret:
+            provided_secret = (data.get("professor_secret") or "").strip()
+            if not provided_secret or not secrets.compare_digest(
+                provided_secret, expected_secret
+            ):
+                return error_response("Invalid professor registration secret", 403)
 
     password_hash = generate_password_hash(password, method="pbkdf2:sha256")
 

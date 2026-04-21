@@ -15,6 +15,7 @@ only see sessions belonging to courses they are enrolled in.
 """
 
 import mimetypes
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -38,6 +39,34 @@ from utils.validators import allowed_file, safe_filename
 executor = ThreadPoolExecutor(max_workers=2)
 
 sessions_bp = Blueprint("sessions", __name__)
+
+
+@sessions_bp.after_request
+def allow_cors_on_media(response):
+    """
+    Flask-CORS does not reliably attach Access-Control-Allow-Origin to
+    206 Partial Content responses (which browsers issue for <video> seeking).
+    Without this hook, Safari/Chrome drop the media stream cross-origin.
+    """
+    if "/media" not in request.path:
+        return response
+
+    raw_origins = os.environ.get("CORS_ORIGINS", "*").strip()
+    origin = request.headers.get("Origin", "")
+    if raw_origins == "*":
+        # Write literal "*" rather than reflecting the request origin.
+        # Reflection + credentials would silently trust every origin.
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    else:
+        allowed = {o.strip() for o in raw_origins.split(",") if o.strip()}
+        if origin and origin in allowed:
+            response.headers["Access-Control-Allow-Origin"] = origin
+    # Ensure caches key responses per-origin so ACAO can't be reused across origins.
+    response.headers["Vary"] = "Origin"
+    response.headers["Access-Control-Expose-Headers"] = (
+        "Content-Range, Accept-Ranges, Content-Length"
+    )
+    return response
 
 
 @sessions_bp.route("/", methods=["GET"])

@@ -22,6 +22,7 @@ to assemble the application and wire together all components in a
 centralized and maintainable way.
 """
 
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -60,18 +61,51 @@ def create_app() -> Flask:
     """
     app = Flask(__name__)
 
-    # Enable cross-origin requests so the React frontend can
-    # communicate with the backend during development.
-    CORS(app)
+    # Refuse to boot in production with a placeholder/fallback secret.
+    # utils/auth.py falls back to "dev-secret-key" (in the public repo) if
+    # JWT_SECRET_KEY is unset; .env.example ships "CHANGE_ME". Block both.
+    # Detection: Railway reliably injects RAILWAY_ENVIRONMENT; FLASK_ENV was
+    # removed in Flask 2.3 and cannot be relied on.
+    is_production = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
+    weak_secrets = {"", "dev-secret-key", "CHANGE_ME"}
+    if is_production:
+        if os.environ.get("JWT_SECRET_KEY", "") in weak_secrets:
+            raise RuntimeError(
+                "JWT_SECRET_KEY must be set to a real value in production "
+                "(not blank, not 'dev-secret-key', not 'CHANGE_ME')"
+            )
+        # Professor-registration gate is a no-op if the secret is missing,
+        # so require it explicitly in prod to avoid silent open registration.
+        if os.environ.get("PROFESSOR_REGISTRATION_SECRET", "") in weak_secrets:
+            raise RuntimeError(
+                "PROFESSOR_REGISTRATION_SECRET must be set in production"
+            )
+
+    # Cap upload size at the Flask layer. nginx on the frontend has a 500M
+    # cap but direct POSTs to the backend public URL bypass nginx entirely.
+    app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
+
+    # CORS is env-driven. Pass "*" as a literal string (not ["*"]) because
+    # flask-cors treats them differently on credentialed requests.
+    raw_origins = os.environ.get("CORS_ORIGINS", "*").strip()
+    cors_origins: object
+    if raw_origins == "*":
+        cors_origins = "*"
+    else:
+        cors_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": cors_origins}},
+        expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"],
+    )
 
     # Create database tables if they do not exist yet.
     init_db()
     recover_interrupted_processing_sessions()
 
-    # Resolve upload directory from the backend root so it stays stable
-    # regardless of the process working directory.
+    # Upload directory is env-overridable so it can point at a Railway volume.
     backend_root = Path(__file__).resolve().parent
-    upload_folder = backend_root / "uploads"
+    upload_folder = Path(os.environ.get("UPLOAD_FOLDER", str(backend_root / "uploads")))
     upload_folder.mkdir(parents=True, exist_ok=True)
     app.config["UPLOAD_FOLDER"] = str(upload_folder)
 
