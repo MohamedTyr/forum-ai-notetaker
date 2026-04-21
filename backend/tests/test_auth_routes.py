@@ -110,6 +110,107 @@ class AuthRouteTests(unittest.TestCase):
         self.assertNotEqual(row["password_hash"], "strongpass123")
         self.assertTrue(check_password_hash(row["password_hash"], "strongpass123"))
 
+    def test_register_requires_json_body(self):
+        """Reject registration requests that do not send JSON."""
+        response = self.client.post("/api/auth/register")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"], "Request body must be JSON")
+
+    def test_register_rejects_invalid_email(self):
+        """Reject registration when the email address is invalid."""
+        response = self.post_json(
+            "/api/auth/register",
+            {
+                "email": "not-an-email",
+                "name": "New Student",
+                "password": "strongpass123",
+                "user_type": "student",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("A valid email is required", response.get_json()["error"])
+
+    def test_register_rejects_blank_name(self):
+        """Reject registration when the name is empty."""
+        response = self.post_json(
+            "/api/auth/register",
+            {
+                "email": "newstudent@example.com",
+                "name": "",
+                "password": "strongpass123",
+                "user_type": "student",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "Name is required and must be under 100 characters",
+            response.get_json()["error"],
+        )
+
+    def test_register_rejects_short_password(self):
+        """Reject registration when the password is shorter than the minimum."""
+        response = self.post_json(
+            "/api/auth/register",
+            {
+                "email": "newstudent@example.com",
+                "name": "New Student",
+                "password": "short",
+                "user_type": "student",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "Password must be at least 8 characters",
+            response.get_json()["error"],
+        )
+
+    def test_register_rejects_invalid_user_type(self):
+        """Reject registration when the account type is unsupported."""
+        response = self.post_json(
+            "/api/auth/register",
+            {
+                "email": "newstudent@example.com",
+                "name": "New Student",
+                "password": "strongpass123",
+                "user_type": "admin",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn(
+            "Account type must be 'student' or 'professor'",
+            response.get_json()["error"],
+        )
+
+    def test_register_rejects_duplicate_email(self):
+        """Reject registration when the email is already registered."""
+        self.post_json(
+            "/api/auth/register",
+            {
+                "email": "duplicate@example.com",
+                "name": "First User",
+                "password": "strongpass123",
+                "user_type": "student",
+            },
+        )
+
+        response = self.post_json(
+            "/api/auth/register",
+            {
+                "email": "duplicate@example.com",
+                "name": "Second User",
+                "password": "strongpass123",
+                "user_type": "student",
+            },
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.get_json()["error"], "Email is already registered")
+
 
 if __name__ == "__main__":
     unittest.main()
